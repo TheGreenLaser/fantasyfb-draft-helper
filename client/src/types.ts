@@ -91,5 +91,15 @@ export interface DraftPick {
 export interface DraftState {
   settings: LeagueSettings;
   myDraftSlot: number;
+  mode: "live" | "practice";
   picks: DraftPick[];
+}
+
+/**
+ * Response from recording a pick. In practice mode the server also auto-drafts
+ * every opponent up to my next turn and returns them here; in live mode it's
+ * just the updated DraftState with no `autoPicks`.
+ */
+export interface PickResponse extends DraftState {
+  autoPicks?: DraftPick[];
 }

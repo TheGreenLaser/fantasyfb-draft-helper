@@ -6,6 +6,7 @@ import { TopPick } from "./components/TopPick";
 import { SimulatePanel } from "./components/SimulatePanel";
 import { RosterStrip } from "./components/RosterStrip";
 import { PlayerTable } from "./components/PlayerTable";
+import { DraftFeed } from "./components/DraftFeed";
 import "./index.css";
 import "./App.css";
 
@@ -55,6 +56,16 @@ export default function App() {
     refresh();
   };
 
+  const handleStartPractice = async (slot: number) => {
+    await api.startPractice(slot);
+    refresh();
+  };
+
+  const handleExitPractice = async () => {
+    await api.setMode("live");
+    refresh();
+  };
+
   const handleSlotChange = async (slot: number) => {
     await api.setMySlot(slot);
     refresh();
@@ -90,7 +101,11 @@ export default function App() {
         mySlot={draftState.myDraftSlot}
         teams={draftState.settings.teams}
         picksUntilMyTurn={rec.picksUntilMyTurn}
+        mode={draftState.mode}
+        hasPicks={draftState.picks.length > 0}
         onSlotChange={handleSlotChange}
+        onStartPractice={handleStartPractice}
+        onExitPractice={handleExitPractice}
         onUndo={handleUndo}
         onReset={handleReset}
       />
@@ -100,6 +115,13 @@ export default function App() {
       <SimulatePanel topCandidates={rec.players} />
 
       <RosterStrip assignment={rec.assignment} myPlayers={myPlayers} />
+
+      <DraftFeed
+        picks={draftState.picks}
+        players={allPlayers}
+        mySlot={draftState.myDraftSlot}
+        teams={draftState.settings.teams}
+      />
 
       <PlayerTable players={rec.players} onDraft={handleDraft} />
     </div>

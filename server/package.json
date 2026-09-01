@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "node server.js",
+    "test": "node --test test/*.test.js",
     "fetch-data": "node data/fetch-projections.js",
     "mock-data": "node data/generate-mock-data.js"
   },

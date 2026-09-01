@@ -497,6 +497,81 @@
   padding: 24px;
 }
 
+/* ---------- Practice mode ---------- */
+
+.header__mode-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* ---------- Draft feed ---------- */
+
+.draft-feed {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.draft-feed__title {
+  display: block;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.draft-feed--empty .text-muted {
+  font-size: 13px;
+}
+.draft-feed__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.draft-feed__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.draft-feed__row--mine {
+  background: var(--accent-dim);
+}
+.draft-feed__pick {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  min-width: 38px;
+}
+.draft-feed__team {
+  min-width: 56px;
+  color: var(--text-muted);
+}
+.draft-feed__row--mine .draft-feed__team {
+  color: var(--accent);
+  font-weight: 700;
+}
+.draft-feed__name {
+  font-weight: 600;
+}
+
 @media (max-width: 720px) {
   .app { padding: 12px; }
   .header { flex-wrap: wrap; }

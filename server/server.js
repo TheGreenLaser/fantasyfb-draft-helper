@@ -14,6 +14,7 @@ import {
   DEFAULT_HORIZON_PICKS,
   DEFAULT_CANDIDATE_COUNT,
 } from "./lib/montecarlo.js";
+import { autoDraftUntilMyTurn, undoPracticePick } from "./lib/practice.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECTIONS_PATH = join(__dirname, "data", "projections.json");
@@ -21,15 +22,23 @@ const DRAFT_STATE_PATH = join(__dirname, "data", "draft-state.json");
 
 const { players: allPlayers } = JSON.parse(readFileSync(PROJECTIONS_PATH, "utf-8"));
 
-function loadDraftState() {
-  if (existsSync(DRAFT_STATE_PATH)) {
-    return JSON.parse(readFileSync(DRAFT_STATE_PATH, "utf-8"));
-  }
+function freshDraftState() {
   return {
     settings: DEFAULT_SETTINGS,
     myDraftSlot: 1, // 1-indexed position in the snake order
+    mode: "live", // "live" | "practice" — practice auto-drafts every other team
     picks: [], // { pickNumber, playerId, byTeam } in order made
   };
+}
+
+function loadDraftState() {
+  if (existsSync(DRAFT_STATE_PATH)) {
+    const loaded = JSON.parse(readFileSync(DRAFT_STATE_PATH, "utf-8"));
+    // Back-compat: state files written before Practice Mode have no `mode`.
+    if (loaded.mode !== "practice") loaded.mode = "live";
+    return loaded;
+  }
+  return freshDraftState();
 }
 
 let draftState = loadDraftState();
@@ -85,24 +94,59 @@ app.post("/api/draft-state/my-slot", (req, res) => {
 });
 
 // Mark a player drafted (by anyone). pickNumber auto-increments if omitted.
+// In practice mode, recording the user's pick also auto-drafts every
+// opponent up to the user's next turn; those picks come back as `autoPicks`.
 app.post("/api/draft-state/pick", (req, res) => {
   const { playerId, byTeam } = req.body;
   const pickNumber = draftState.picks.length + 1;
   draftState.picks.push({ pickNumber, playerId, byTeam: byTeam ?? teamOnClock(pickNumber, draftState.settings.teams) });
+
+  if (draftState.mode === "practice") {
+    const autoPicks = autoDraftUntilMyTurn(draftState, allPlayers);
+    saveDraftState();
+    return res.json({ ...draftState, autoPicks });
+  }
+
   saveDraftState();
   res.json(draftState);
 });
 
 app.post("/api/draft-state/undo", (req, res) => {
-  draftState.picks.pop();
+  if (draftState.mode === "practice") {
+    // Rewind past the opponent auto-picks back to before my last decision.
+    undoPracticePick(draftState);
+  } else {
+    draftState.picks.pop();
+  }
   saveDraftState();
   res.json(draftState);
 });
 
 app.post("/api/draft-state/reset", (req, res) => {
-  draftState = { settings: DEFAULT_SETTINGS, myDraftSlot: 1, picks: [] };
+  draftState = freshDraftState();
   saveDraftState();
   res.json(draftState);
+});
+
+// Switch draft mode. Going back to "live" needs no special handling — the app
+// just stops auto-drafting after future picks; history is left untouched.
+app.post("/api/draft-state/mode", (req, res) => {
+  const { mode } = req.body;
+  if (mode === "live" || mode === "practice") draftState.mode = mode;
+  saveDraftState();
+  res.json(draftState);
+});
+
+// Start a fresh practice draft: reset, set my slot, and immediately auto-draft
+// every pick before my first turn. Returns the new state plus the auto-picks.
+app.post("/api/draft-state/start-practice", (req, res) => {
+  const slot = Number(req.body.slot);
+  draftState = freshDraftState();
+  draftState.mode = "practice";
+  draftState.myDraftSlot = Number.isFinite(slot) && slot >= 1 ? slot : 1;
+  const autoPicks = autoDraftUntilMyTurn(draftState, allPlayers);
+  saveDraftState();
+  res.json({ ...draftState, autoPicks });
 });
 
 // The main endpoint the client polls after every pick: available players

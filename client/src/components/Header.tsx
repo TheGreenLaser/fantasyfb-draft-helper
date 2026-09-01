@@ -4,13 +4,41 @@ interface Props {
   mySlot: number;
   teams: number;
   picksUntilMyTurn: number;
+  mode: "live" | "practice";
+  hasPicks: boolean;
   onSlotChange: (slot: number) => void;
+  onStartPractice: (slot: number) => void;
+  onExitPractice: () => void;
   onUndo: () => void;
   onReset: () => void;
 }
 
-export function Header({ currentPick, totalPicks, mySlot, teams, picksUntilMyTurn, onSlotChange, onUndo, onReset }: Props) {
+export function Header({
+  currentPick,
+  totalPicks,
+  mySlot,
+  teams,
+  picksUntilMyTurn,
+  mode,
+  hasPicks,
+  onSlotChange,
+  onStartPractice,
+  onExitPractice,
+  onUndo,
+  onReset,
+}: Props) {
   const onTheClock = picksUntilMyTurn === 0;
+  const practice = mode === "practice";
+
+  const handlePracticeClick = () => {
+    if (practice) {
+      if (hasPicks && !confirm("Exit practice mode? Future picks won't auto-draft; the board stays as-is.")) return;
+      onExitPractice();
+      return;
+    }
+    if (hasPicks && !confirm("Start a practice draft? This clears the current draft and auto-drafts every other team.")) return;
+    onStartPractice(mySlot);
+  };
 
   return (
     <header className="header">
@@ -26,6 +54,7 @@ export function Header({ currentPick, totalPicks, mySlot, teams, picksUntilMyTur
       </div>
 
       <div className="header__controls">
+        {practice && <span className="header__mode-badge">Practice · slot {mySlot}</span>}
         <label className="header__slot">
           Draft slot
           <select value={mySlot} onChange={e => onSlotChange(Number(e.target.value))}>
@@ -34,6 +63,9 @@ export function Header({ currentPick, totalPicks, mySlot, teams, picksUntilMyTur
             ))}
           </select>
         </label>
+        <button className={`btn ${practice ? "btn--danger" : ""}`} onClick={handlePracticeClick}>
+          {practice ? "Exit practice" : "Practice mode"}
+        </button>
         <button className="btn" onClick={onUndo}>Undo</button>
         <button className="btn btn--danger" onClick={onReset}>Reset</button>
       </div>

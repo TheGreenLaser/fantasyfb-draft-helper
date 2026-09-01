@@ -29,7 +29,7 @@ export const DEFAULT_CANDIDATE_COUNT = 8;
  * positional timing (K/DST have late ADP, so their weight near early picks is
  * ~0), which keeps simulated opponent drafts plausible without extra logic.
  */
-function sampleOpponentPick(pool, pickNumber) {
+export function sampleOpponentPick(pool, pickNumber) {
   const weights = pool.map(p => {
     const sd = Math.max(p.adpStdDev, 0.5);
     const z = (pickNumber - p.adp) / sd;

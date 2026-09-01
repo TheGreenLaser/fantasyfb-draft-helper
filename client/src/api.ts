@@ -1,4 +1,4 @@
-import type { DraftState, RecommendationsResponse, SimulationResponse } from "./types";
+import type { DraftPick, DraftState, PickResponse, RecommendationsResponse, SimulationResponse } from "./types";
 
 const BASE = "http://localhost:3001";
 
@@ -18,7 +18,13 @@ export const api = {
   setSettings: (settings: Partial<DraftState["settings"]>) =>
     req<DraftState>("/api/draft-state/settings", { method: "POST", body: JSON.stringify(settings) }),
   pickPlayer: (playerId: number) =>
-    req<DraftState>("/api/draft-state/pick", { method: "POST", body: JSON.stringify({ playerId }) }),
+    req<PickResponse>("/api/draft-state/pick", { method: "POST", body: JSON.stringify({ playerId }) }),
+  // Practice Draft Mode: reset, take `slot`, and auto-draft every team up to
+  // my first turn. Cheap (weighted sampling, not simulation) — near-instant.
+  startPractice: (slot: number) =>
+    req<DraftState & { autoPicks: DraftPick[] }>("/api/draft-state/start-practice", { method: "POST", body: JSON.stringify({ slot }) }),
+  setMode: (mode: "live" | "practice") =>
+    req<DraftState>("/api/draft-state/mode", { method: "POST", body: JSON.stringify({ mode }) }),
   // Manual-trigger Monte Carlo (Layer 5). Slow (~1.5-2.5s) — call on an
   // explicit button click, never in the after-pick refresh loop. Omit
   // candidateIds to simulate the current top picks; pass them to compare
