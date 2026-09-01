@@ -141,3 +141,4 @@ for the full reasoning:
 6. **Backtesting** — run the recommender against a past season's actual
    ADP and results to sanity-check `λ` and catch bugs that look reasonable
    in isolation.
+# fantasyfb-draft-helper
