@@ -1,0 +1,69 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=JetBrains+Mono:wght@400;600&display=swap");
+
+:root {
+  --bg: #1b1d1f;
+  --surface: #232629;
+  --surface-alt: #2a2e31;
+  --surface-raised: #2f3336;
+  --border: #383c40;
+  --border-soft: #2e3134;
+
+  --text: #edeeee;
+  --text-muted: #9aa0a6;
+  --text-faint: #6b7075;
+
+  --accent: #59ab80;
+  --accent-dim: #3d7a5c;
+  --accent-text: #0f1a15;
+  --warn: #d9a441;
+  --danger: #c9695f;
+
+  --qb: #cf8f6c;
+  --rb: #6fa3d6;
+  --wr: #7cb37e;
+  --te: #c7a24a;
+  --k: #9a9ea3;
+  --dst: #9585c7;
+
+  --font-ui: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--accent-dim);
+  color: white;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

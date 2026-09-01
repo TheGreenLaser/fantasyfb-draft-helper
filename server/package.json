@@ -1,0 +1,14 @@
+{
+  "name": "draft-helper-server",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "fetch-data": "node data/fetch-projections.js",
+    "mock-data": "node data/generate-mock-data.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
