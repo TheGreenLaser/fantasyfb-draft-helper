@@ -163,12 +163,13 @@ app.get("/api/recommendations", (req, res) => {
   // Best starting lineup for my ACTUAL roster right now (computed once, separate
   // from the per-candidate marginal-value calls) so the client can render it.
   const { replacementPoints } = computeVOR(available, draftState.settings);
-  const { assignment } = computeLineupValue(myRosterPlayers, draftState.settings, replacementPoints);
+  const { assignment, bench } = computeLineupValue(myRosterPlayers, draftState.settings, replacementPoints);
 
   res.json({
     players,
     opportunityCost,
     assignment,
+    bench,
     currentPick,
     nextPickNumber,
     picksUntilMyTurn: nextPickNumber - currentPick,

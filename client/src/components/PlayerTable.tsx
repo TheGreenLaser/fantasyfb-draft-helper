@@ -19,6 +19,14 @@ const SORT_LABELS: Record<SortKey, string> = {
   opportunityCost: "Opp. cost",
 };
 
+// Shown on hover. "Marg." reflects value to your CURRENT roster (how much this
+// player would improve your best starting lineup right now), so it can disagree
+// with "Score" for a saturated position — Score is roster-agnostic (VOR-based).
+const SORT_TITLES: Partial<Record<SortKey, string>> = {
+  recommendationScore: "Roster-agnostic value (VOR + opportunity cost). Every player treated equally regardless of how full that position is on your roster.",
+  marginalValue: "Value to your current roster: how much this player would improve your best possible starting lineup right now. Not used for ranking.",
+};
+
 export function PlayerTable({ players, onDraft }: { players: RankedPlayer[]; onDraft: (id: number) => void }) {
   const [posFilter, setPosFilter] = useState<Position | "ALL">("ALL");
   const [search, setSearch] = useState("");
@@ -78,6 +86,7 @@ export function PlayerTable({ players, onDraft }: { players: RankedPlayer[]; onD
                   key={key}
                   className={`col-num sortable ${sortKey === key ? "sortable--active" : ""}`}
                   onClick={() => setSortKey(key)}
+                  title={SORT_TITLES[key]}
                 >
                   {SORT_LABELS[key]}
                 </th>

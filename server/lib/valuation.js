@@ -122,10 +122,12 @@ export function computeOpportunityCost(byPosition, nextPickNumber) {
  * the user's NEXT turn, returns players sorted by a blended score of
  * value and position-level opportunity cost, plus tiers per position.
  *
- * When `myRosterPlayers` is supplied, the primary value signal is each
- * candidate's MARGINAL value — how much they'd improve my best possible
- * starting lineup given what I've already drafted (see lineup.js). Without
- * roster context (e.g. very start of the draft) it falls back to raw VOR.
+ * The value signal driving the score is raw VOR — every player is treated
+ * equally regardless of how full their position is on my roster. When
+ * `myRosterPlayers` is supplied we ALSO compute each candidate's marginal
+ * value (how much they'd improve my best possible starting lineup given what
+ * I've already drafted, see lineup.js) and return it for display, but it does
+ * not affect recommendationScore. See the NOTE in the map() below.
  */
 export function getRecommendations(availablePlayers, { nextPickNumber, settings = DEFAULT_SETTINGS, lambda = 0.6, myRosterPlayers = null } = {}) {
   const { players: scored, replacementPoints } = computeVOR(availablePlayers, settings);
@@ -157,15 +159,26 @@ export function getRecommendations(availablePlayers, { nextPickNumber, settings 
               baseLineupValue) * 10
           ) / 10
         : p.vor;
-      // Primary driver: marginal lineup value when we have roster context,
-      // otherwise raw VOR.
-      const primaryValue = useMarginal ? marginalValue : p.vor;
+      // NOTE: recommendationScore is deliberately driven by raw VOR, NOT
+      // marginalValue. Layer 4 made marginal value the primary driver, which
+      // caused the score to collapse toward zero for extra players at an
+      // already-full position (e.g. a 5th RB once both RB and both FLEX slots
+      // are spoken for). That "diminishing returns" behavior was judged too
+      // aggressive — it punishes bench-quality depth almost entirely, when a
+      // strong bench player still has real value (injury insurance, trade
+      // bait, bye-week coverage, or just being a genuinely good player). So we
+      // treat every player equally via VOR regardless of how full their
+      // position is on my roster. marginalValue is still computed and returned
+      // below because "how much would this player help my lineup right now" is
+      // useful info — it just doesn't drive the ranking anymore. Don't "fix"
+      // this back to marginalValue without reintroducing a gentler curve
+      // (e.g. partial credit for bench depth) instead of a hard collapse.
       return {
         ...p,
         marginalValue,
         opportunityCost: oppCost[p.position] ?? 0,
         recommendationScore:
-          Math.round((primaryValue + lambda * (oppCost[p.position] ?? 0)) * 10) / 10,
+          Math.round((p.vor + lambda * (oppCost[p.position] ?? 0)) * 10) / 10,
         tier: tiersByPos[p.position]?.find(t => t.id === p.id)?.tier ?? null,
       };
     })

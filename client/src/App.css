@@ -330,9 +330,11 @@
 .roster-slot--filled {
   border-color: var(--border);
 }
-.roster-slot--bench {
-  min-width: 220px;
-  flex: 1 1 auto;
+.roster-slot--benchplayer {
+  min-width: 96px;
+  background: var(--bg);
+  border-style: dashed;
+  opacity: 0.8;
 }
 .roster-slot--placeholder {
   border-style: dashed;

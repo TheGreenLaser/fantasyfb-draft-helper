@@ -9,18 +9,15 @@ function slotLabel(key: string) {
 
 export function RosterStrip({
   assignment,
-  myPlayers,
+  bench,
 }: {
   assignment: LineupAssignment;
-  myPlayers: Player[];
+  /** Bench players from the server, already sorted desc by projectedPoints. */
+  bench: Player[];
 }) {
+  // Render whatever slot keys the server sends, in the order it sends them, so
+  // roster-shape changes (e.g. 1 FLEX -> 2 FLEX) need no client change.
   const slots = Object.entries(assignment);
-  const starterIds = new Set(
-    slots
-      .map(([, v]) => (isPlaceholder(v) ? null : v.id))
-      .filter((id): id is number => id !== null)
-  );
-  const bench = myPlayers.filter(p => !starterIds.has(p.id));
 
   return (
     <div className="roster-strip">
@@ -44,14 +41,18 @@ export function RosterStrip({
           </div>
         );
       })}
-      {bench.length > 0 && (
-        <div className="roster-slot roster-slot--bench">
-          <span className="roster-slot__label">Bench ({bench.length})</span>
-          <span className="roster-slot__name roster-slot__name--muted">
-            {bench.map(p => p.name).join(", ")}
-          </span>
+
+      {bench.map(p => (
+        <div key={p.id} className="roster-slot roster-slot--benchplayer">
+          <span className="roster-slot__label">BN · {p.position}</span>
+          <span
+            className="roster-slot__dot"
+            style={{ background: `var(${POSITION_VAR[p.position]})` }}
+          />
+          <span className="roster-slot__name roster-slot__name--muted">{p.name}</span>
+          <span className="roster-slot__empty">{p.projectedPoints.toFixed(1)}</span>
         </div>
-      )}
+      ))}
     </div>
   );
 }

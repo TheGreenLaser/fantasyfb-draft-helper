@@ -39,6 +39,8 @@ export interface RecommendationsResponse {
   players: RankedPlayer[];
   opportunityCost: Record<Position, number>;
   assignment: LineupAssignment;
+  /** Rostered players not in a starting or flex slot, sorted desc by projectedPoints. */
+  bench: Player[];
   currentPick: number;
   nextPickNumber: number;
   picksUntilMyTurn: number;

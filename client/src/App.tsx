@@ -88,11 +88,6 @@ export default function App() {
     Object.values(draftState.settings.roster).reduce((a, b) => a + b, 0)
   );
 
-  const myPlayerIds = new Set(
-    draftState.picks.filter(p => p.byTeam === draftState.myDraftSlot).map(p => p.playerId)
-  );
-  const myPlayers = allPlayers.filter(p => myPlayerIds.has(p.id));
-
   return (
     <div className="app">
       <Header
@@ -114,7 +109,7 @@ export default function App() {
 
       <SimulatePanel topCandidates={rec.players} />
 
-      <RosterStrip assignment={rec.assignment} myPlayers={myPlayers} />
+      <RosterStrip assignment={rec.assignment} bench={rec.bench} />
 
       <DraftFeed
         picks={draftState.picks}

@@ -18,9 +18,11 @@ const DEDICATED_SLOTS = ["QB", "RB", "WR", "TE", "K", "DST"];
  * @param {Array} rosterPlayers  player objects with { position, projectedPoints }
  * @param {object} settings       league settings (uses settings.roster counts)
  * @param {object} replacementPoints  { QB, RB, ... } from computeVOR — reused, not recomputed
- * @returns {{ total: number, assignment: Record<string, object> }}
+ * @returns {{ total: number, assignment: Record<string, object>, bench: Array }}
  *   assignment maps each slot key (e.g. "QB", "RB1", "FLEX") to either a player
  *   object or { placeholder: true, position, points }.
+ *   bench is every rostered player not used in a starting or flex slot,
+ *   sorted descending by projectedPoints.
  */
 export function computeLineupValue(rosterPlayers, settings = DEFAULT_SETTINGS, replacementPoints = {}) {
   const roster = settings.roster ?? DEFAULT_SETTINGS.roster;
@@ -82,5 +84,10 @@ export function computeLineupValue(rosterPlayers, settings = DEFAULT_SETTINGS, r
     }
   }
 
-  return { total: Math.round(total * 10) / 10, assignment };
+  // Everything left over after starters + flex are filled is bench depth.
+  const bench = rosterPlayers
+    .filter(p => !used.has(p))
+    .sort((a, b) => b.projectedPoints - a.projectedPoints);
+
+  return { total: Math.round(total * 10) / 10, assignment, bench };
 }

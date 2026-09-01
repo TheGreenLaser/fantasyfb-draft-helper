@@ -10,10 +10,10 @@ export const DEFAULT_SETTINGS = {
     RB: 2,
     WR: 2,
     TE: 1,
-    FLEX: 1, // eligible: RB, WR, TE
+    FLEX: 2, // eligible: RB, WR, TE
     K: 1,
     DST: 1,
-    BENCH: 6,
+    BENCH: 5,
   },
 };
 
