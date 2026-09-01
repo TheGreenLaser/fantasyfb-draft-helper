@@ -89,14 +89,24 @@ reload the page. Click **Reset** in the header to clear it and start over.
   turn" for any team count / draft slot.
 - **Roster strip** — greedily fills starter slots (including FLEX) from your
   picks so you can see your projected starting lineup forming in real time.
+- **Monte Carlo simulation (Layer 5)** — `server/lib/montecarlo.js`. Manual
+  "Simulate top picks" button (`POST /api/simulate`) that plays out the rest
+  of the draft many times per candidate — opponents drafting ADP-weighted-
+  random, you drafting via the Layer 1-4 heuristic — and ranks candidates by
+  mean final starting-lineup value. Defaults (150 sims, 30-pick horizon, 8
+  candidates, ~2s) are constants at the top of `montecarlo.js`. Not part of
+  the after-pick refresh loop — it's opt-in only.
 
 ## Project structure
 
 ```
 server/
-  server.js              Express app, draft state, snake-draft math
+  server.js              Express app, draft state, /api/simulate route
+  lib/draftMath.js        Snake-draft math (teamOnClock / nextPickForSlot)
   lib/leagueSettings.js   Replacement-level / FLEX allocation logic
   lib/valuation.js         VOR, tiers, opportunity cost, recommendation score
+  lib/lineup.js            Best-starting-lineup value (marginal-value scoring)
+  lib/montecarlo.js        Layer 5: Monte Carlo rest-of-draft simulation
   lib/sources/espn.js       Fetches raw player data from ESPN (unofficial API)
   lib/sources/transform.js  Converts ESPN's raw shape into our Player type
   data/fetch-projections.js Script: ESPN -> projections.json (npm run fetch-data)
@@ -109,6 +119,7 @@ client/
   src/components/
     Header.tsx              Draft slot picker, pick counter, undo/reset
     TopPick.tsx              The single recommended pick, with a reason
+    SimulatePanel.tsx        Layer 5 "Simulate top picks" button + results
     RosterStrip.tsx          Your starting lineup as it fills in
     PlayerTable.tsx          Full sortable/filterable/tiered board
   src/api.ts                Fetch wrapper for the server API
@@ -134,11 +145,7 @@ for the full reasoning:
 4. **Live sync** — Sleeper's API is free and unauthenticated; polling it
    for picks would remove the need to manually click "Draft" for other
    teams.
-5. **Monte Carlo (Layer 5)** — simulate the rest of the draft under an ADP-
-   weighted opponent model to get a true expected-value recommendation
-   instead of the greedy VOR + opportunity-cost heuristic. Worth a Web
-   Worker given ~250 players × 16 rounds × several thousand simulations.
-6. **Backtesting** — run the recommender against a past season's actual
+5. **Backtesting** — run the recommender against a past season's actual
    ADP and results to sanity-check `λ` and catch bugs that look reasonable
    in isolation.
 # fantasyfb-draft-helper

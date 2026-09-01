@@ -188,6 +188,126 @@
   border-radius: 4px;
 }
 
+/* ---------- Simulate panel (Layer 5) ---------- */
+
+.sim-panel {
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sim-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.sim-panel__label {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.sim-panel__sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.sim-panel__meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.sim-panel__loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.sim-panel__error {
+  font-size: 13px;
+  color: var(--danger);
+}
+.sim-panel__takeaway {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.sim-panel__takeaway strong {
+  color: var(--text);
+}
+
+.sim-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: sim-spin 0.7s linear infinite;
+  flex: 0 0 auto;
+}
+@keyframes sim-spin {
+  to { transform: rotate(360deg); }
+}
+
+.sim-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sim-row {
+  display: grid;
+  grid-template-columns: 34px 150px 1fr 52px;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 0;
+}
+.sim-row__name {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sim-row--best .sim-row__name {
+  color: var(--accent);
+}
+.sim-row__bar {
+  position: relative;
+  height: 10px;
+  background: var(--surface-alt);
+  border-radius: 5px;
+}
+.sim-row__range {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--accent-dim);
+  border-radius: 5px;
+  min-width: 2px;
+}
+.sim-row--best .sim-row__range {
+  background: var(--accent);
+}
+.sim-row__mean {
+  position: absolute;
+  top: -2px;
+  width: 2px;
+  height: 14px;
+  background: var(--text);
+  transform: translateX(-1px);
+}
+.sim-row__val {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  text-align: right;
+}
+
 /* ---------- Roster strip ---------- */
 
 .roster-strip {

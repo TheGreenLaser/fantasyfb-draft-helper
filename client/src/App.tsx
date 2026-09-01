@@ -3,6 +3,7 @@ import { api } from "./api";
 import type { DraftState, Player, RecommendationsResponse } from "./types";
 import { Header } from "./components/Header";
 import { TopPick } from "./components/TopPick";
+import { SimulatePanel } from "./components/SimulatePanel";
 import { RosterStrip } from "./components/RosterStrip";
 import { PlayerTable } from "./components/PlayerTable";
 import "./index.css";
@@ -95,6 +96,8 @@ export default function App() {
       />
 
       <TopPick player={rec.players[0]} runnerUp={rec.players[1]} onDraft={handleDraft} />
+
+      <SimulatePanel topCandidates={rec.players} />
 
       <RosterStrip assignment={rec.assignment} myPlayers={myPlayers} />
 

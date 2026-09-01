@@ -7,6 +7,13 @@ import { dirname, join } from "path";
 import { DEFAULT_SETTINGS } from "./lib/leagueSettings.js";
 import { getRecommendations, computeVOR } from "./lib/valuation.js";
 import { computeLineupValue } from "./lib/lineup.js";
+import { teamOnClock, nextPickForSlot } from "./lib/draftMath.js";
+import {
+  simulateCandidates,
+  DEFAULT_NUM_SIMULATIONS,
+  DEFAULT_HORIZON_PICKS,
+  DEFAULT_CANDIDATE_COUNT,
+} from "./lib/montecarlo.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECTIONS_PATH = join(__dirname, "data", "projections.json");
@@ -31,19 +38,26 @@ function saveDraftState() {
   writeFileSync(DRAFT_STATE_PATH, JSON.stringify(draftState, null, 2));
 }
 
-/** Snake-draft team-on-the-clock for a given overall pick number. */
-function teamOnClock(pickNumber, teams) {
-  const round = Math.floor((pickNumber - 1) / teams);
-  const posInRound = (pickNumber - 1) % teams;
-  const slot = round % 2 === 0 ? posInRound + 1 : teams - posInRound;
-  return slot;
-}
+/**
+ * Shared setup for the routes that reason about "the board right now":
+ * available players, the current/next pick numbers, and my roster as full
+ * player objects. Used by both /api/recommendations and /api/simulate so
+ * there's one definition of that context.
+ */
+function buildDraftContext() {
+  const draftedIds = new Set(draftState.picks.map(p => p.playerId));
+  const available = allPlayers.filter(p => !draftedIds.has(p.id));
 
-/** Next overall pick number at which `mySlot` is on the clock, from `fromPick` onward. */
-function nextPickForSlot(fromPick, mySlot, teams) {
-  let pick = fromPick;
-  while (teamOnClock(pick, teams) !== mySlot) pick++;
-  return pick;
+  const currentPick = draftState.picks.length + 1;
+  const nextPickNumber = nextPickForSlot(currentPick, draftState.myDraftSlot, draftState.settings.teams);
+
+  const playerById = new Map(allPlayers.map(p => [p.id, p]));
+  const myRosterPlayers = draftState.picks
+    .filter(p => p.byTeam === draftState.myDraftSlot)
+    .map(p => playerById.get(p.playerId))
+    .filter(Boolean);
+
+  return { available, currentPick, nextPickNumber, myRosterPlayers, playerById };
 }
 
 const app = express();
@@ -94,18 +108,7 @@ app.post("/api/draft-state/reset", (req, res) => {
 // The main endpoint the client polls after every pick: available players
 // ranked by recommendation score, tiers, and opportunity cost.
 app.get("/api/recommendations", (req, res) => {
-  const draftedIds = new Set(draftState.picks.map(p => p.playerId));
-  const available = allPlayers.filter(p => !draftedIds.has(p.id));
-
-  const currentPick = draftState.picks.length + 1;
-  const nextPickNumber = nextPickForSlot(currentPick, draftState.myDraftSlot, draftState.settings.teams);
-
-  // My current roster as full player objects, for marginal-value scoring.
-  const playerById = new Map(allPlayers.map(p => [p.id, p]));
-  const myRosterPlayers = draftState.picks
-    .filter(p => p.byTeam === draftState.myDraftSlot)
-    .map(p => playerById.get(p.playerId))
-    .filter(Boolean);
+  const { available, currentPick, nextPickNumber, myRosterPlayers } = buildDraftContext();
 
   const { players, opportunityCost } = getRecommendations(available, {
     nextPickNumber,
@@ -127,6 +130,53 @@ app.get("/api/recommendations", (req, res) => {
     picksUntilMyTurn: nextPickNumber - currentPick,
     onTheClockSlot: teamOnClock(currentPick, draftState.settings.teams),
     myDraftSlot: draftState.myDraftSlot,
+  });
+});
+
+// Manual-trigger Monte Carlo (Layer 5). NOT polled — this is a deliberate
+// "think harder about this pick" call and takes ~1.5-2.5s. Body:
+//   { candidateIds?: number[] }  — omit to simulate the top-N players from
+//   the current recommendation ranking; pass IDs to compare specific players.
+app.post("/api/simulate", (req, res) => {
+  const { available, currentPick, myRosterPlayers } = buildDraftContext();
+  const settings = draftState.settings;
+
+  const candidateIds = Array.isArray(req.body?.candidateIds) ? req.body.candidateIds : null;
+
+  let candidates;
+  if (candidateIds && candidateIds.length > 0) {
+    const wanted = new Set(candidateIds);
+    candidates = available.filter(p => wanted.has(p.id));
+  } else {
+    const { players: ranked } = getRecommendations(available, {
+      nextPickNumber: nextPickForSlot(currentPick, draftState.myDraftSlot, settings.teams),
+      settings,
+      myRosterPlayers,
+    });
+    candidates = ranked.slice(0, DEFAULT_CANDIDATE_COUNT);
+  }
+
+  if (candidates.length === 0) {
+    return res.status(400).json({ error: "No valid candidates to simulate." });
+  }
+
+  const started = Date.now();
+  const { results } = simulateCandidates({
+    candidates,
+    availablePlayers: available,
+    myRoster: myRosterPlayers,
+    currentPick,
+    myDraftSlot: draftState.myDraftSlot,
+    settings,
+    numSimulations: DEFAULT_NUM_SIMULATIONS,
+    horizonPicks: DEFAULT_HORIZON_PICKS,
+  });
+
+  res.json({
+    results,
+    numSimulations: DEFAULT_NUM_SIMULATIONS,
+    horizonPicks: DEFAULT_HORIZON_PICKS,
+    tookMs: Date.now() - started,
   });
 });
 

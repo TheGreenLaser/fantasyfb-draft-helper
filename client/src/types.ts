@@ -46,6 +46,25 @@ export interface RecommendationsResponse {
   myDraftSlot: number;
 }
 
+/** One candidate's Monte Carlo outcome distribution (Layer 5). */
+export interface SimulationResult {
+  playerId: number;
+  name: string;
+  position: Position;
+  /** Mean final starting-lineup value across all simulations. */
+  mean: number;
+  p10: number;
+  p50: number;
+  p90: number;
+}
+
+export interface SimulationResponse {
+  results: SimulationResult[];
+  numSimulations: number;
+  horizonPicks: number;
+  tookMs: number;
+}
+
 export interface RosterSettings {
   QB: number;
   RB: number;

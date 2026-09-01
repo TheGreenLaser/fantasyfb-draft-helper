@@ -1,4 +1,4 @@
-import type { DraftState, RecommendationsResponse } from "./types";
+import type { DraftState, RecommendationsResponse, SimulationResponse } from "./types";
 
 const BASE = "http://localhost:3001";
 
@@ -19,6 +19,15 @@ export const api = {
     req<DraftState>("/api/draft-state/settings", { method: "POST", body: JSON.stringify(settings) }),
   pickPlayer: (playerId: number) =>
     req<DraftState>("/api/draft-state/pick", { method: "POST", body: JSON.stringify({ playerId }) }),
+  // Manual-trigger Monte Carlo (Layer 5). Slow (~1.5-2.5s) — call on an
+  // explicit button click, never in the after-pick refresh loop. Omit
+  // candidateIds to simulate the current top picks; pass them to compare
+  // specific players.
+  simulate: (candidateIds?: number[]) =>
+    req<SimulationResponse>("/api/simulate", {
+      method: "POST",
+      body: JSON.stringify(candidateIds ? { candidateIds } : {}),
+    }),
   undo: () => req<DraftState>("/api/draft-state/undo", { method: "POST" }),
   reset: () => req<DraftState>("/api/draft-state/reset", { method: "POST" }),
 };
