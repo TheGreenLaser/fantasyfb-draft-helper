@@ -92,10 +92,14 @@ reload the page. Click **Reset** in the header to clear it and start over.
 - **Monte Carlo simulation (Layer 5)** — `server/lib/montecarlo.js`. Manual
   "Simulate top picks" button (`POST /api/simulate`) that plays out the rest
   of the draft many times per candidate — opponents drafting ADP-weighted-
-  random, you drafting via the Layer 1-4 heuristic — and ranks candidates by
-  mean final starting-lineup value. Defaults (150 sims, 30-pick horizon, 8
-  candidates, ~2s) are constants at the top of `montecarlo.js`. Not part of
-  the after-pick refresh loop — it's opt-in only.
+  random *nudged by their own roster needs* (a full RB room stops taking RBs),
+  you drafting via the Layer 1-4 heuristic — and ranks candidates by mean final
+  starting-lineup value. Defaults (150 sims, 30-pick horizon, 8 candidates,
+  ~2.5s) are constants at the top of `montecarlo.js`. Not part of the
+  after-pick refresh loop — it's opt-in only.
+
+Deliberate modelling choices in the draft math (things that look like gaps but
+are intentional) are catalogued in `ALGORITHM-EDITS.md`.
 
 ## Project structure
 

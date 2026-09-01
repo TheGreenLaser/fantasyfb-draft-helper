@@ -66,7 +66,18 @@ function buildDraftContext() {
     .map(p => playerById.get(p.playerId))
     .filter(Boolean);
 
-  return { available, currentPick, nextPickNumber, myRosterPlayers, playerById };
+  // Every OTHER team's roster so far, keyed by draft slot — fed to the Monte
+  // Carlo simulator so its opponents draft roster-need-aware from the real board.
+  const opponentRosters = new Map();
+  for (const p of draftState.picks) {
+    if (p.byTeam === draftState.myDraftSlot) continue;
+    const player = playerById.get(p.playerId);
+    if (!player) continue;
+    if (!opponentRosters.has(p.byTeam)) opponentRosters.set(p.byTeam, []);
+    opponentRosters.get(p.byTeam).push(player);
+  }
+
+  return { available, currentPick, nextPickNumber, myRosterPlayers, opponentRosters, playerById };
 }
 
 const app = express();
@@ -183,7 +194,7 @@ app.get("/api/recommendations", (req, res) => {
 //   { candidateIds?: number[] }  — omit to simulate the top-N players from
 //   the current recommendation ranking; pass IDs to compare specific players.
 app.post("/api/simulate", (req, res) => {
-  const { available, currentPick, myRosterPlayers } = buildDraftContext();
+  const { available, currentPick, myRosterPlayers, opponentRosters } = buildDraftContext();
   const settings = draftState.settings;
 
   const candidateIds = Array.isArray(req.body?.candidateIds) ? req.body.candidateIds : null;
@@ -210,6 +221,7 @@ app.post("/api/simulate", (req, res) => {
     candidates,
     availablePlayers: available,
     myRoster: myRosterPlayers,
+    opponentRosters,
     currentPick,
     myDraftSlot: draftState.myDraftSlot,
     settings,

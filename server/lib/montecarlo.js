@@ -12,6 +12,7 @@
 import { computeVOR, getRecommendations } from "./valuation.js";
 import { computeLineupValue } from "./lineup.js";
 import { teamOnClock, nextPickForSlot } from "./draftMath.js";
+import { FLEX_ELIGIBLE } from "./leagueSettings.js";
 
 // --- Tunable knobs -----------------------------------------------------------
 // Easy to find on purpose: real-machine timing on the ESPN-sized pool (~500
@@ -21,19 +22,77 @@ import { teamOnClock, nextPickForSlot } from "./draftMath.js";
 export const DEFAULT_NUM_SIMULATIONS = 150;
 export const DEFAULT_HORIZON_PICKS = 30;
 export const DEFAULT_CANDIDATE_COUNT = 8;
+// Weight multiplier applied to a position once a simulated opponent has filled
+// every startable slot it could use (dedicated slots, plus FLEX for RB/WR/TE).
+// A multiplier, NOT a hard filter — a "full" position still gets picked
+// occasionally (bench depth, best-player-available), the way real drafters do.
+export const SATURATED_POSITION_WEIGHT = 0.15;
 // ---------------------------------------------------------------------------
+
+// NOTE (roster-aware opponents): sampleOpponentPick used to weight purely by
+// ADP proximity, with a deliberate "no roster-need modeling" decision recorded
+// in ALGORITHM-EDITS.md's deliberate-simplifications table and verified in
+// HANDOFF-layer5.md ("plausible simulated opponent drafts... no K/DST in the
+// first 5 rounds"). That verification checked *aggregate* position
+// distributions, which looked sane. It did NOT check whether any *single*
+// simulated opponent looks like a plausible drafter — and a roster-blind ADP
+// sample happily gives one opponent a 4th RB while it has zero TE. That reads
+// as broken in practice mode, where the user watches individual opponents pick.
+// Reversed per HANDOFF (Roster-Aware Opponent Modeling): the ADP weight is now
+// multiplied by a per-position need multiplier derived from that opponent's own
+// simulated roster. Still a nudge, not a solver — opponents do not use VOR or
+// opportunity cost (that would make every opponent draft identically and
+// optimally, its own kind of unrealism). See ALGORITHM-EDITS.md.
+
+/**
+ * Per-position sampling-weight multiplier for one opponent, given the roster
+ * they've drafted so far. 1 for any position with an open startable slot;
+ * SATURATED_POSITION_WEIGHT for a position whose dedicated slots (and FLEX,
+ * for flex-eligible positions) are all filled by real players.
+ *
+ * Reuses lineup.js's greedy slot assignment rather than reimplementing an
+ * "is this slot full" check — a slot it fills with a placeholder is, by
+ * definition, one this roster can't yet staff.
+ */
+export function positionNeedMultipliers(roster, settings) {
+  const { assignment } = computeLineupValue(roster, settings, {});
+
+  const hasOpenSlot = {};
+  for (const slot of Object.values(assignment)) {
+    if (!slot.placeholder) continue;
+    if (slot.position === "FLEX") {
+      for (const fp of FLEX_ELIGIBLE) hasOpenSlot[fp] = true;
+    } else {
+      hasOpenSlot[slot.position] = true;
+    }
+  }
+
+  const positions = Object.keys(settings.roster).filter(
+    k => k !== "FLEX" && k !== "BENCH"
+  );
+  const mult = {};
+  for (const pos of positions) {
+    mult[pos] = hasOpenSlot[pos] ? 1 : SATURATED_POSITION_WEIGHT;
+  }
+  return mult;
+}
 
 /**
  * Draw one opponent pick from `pool`, weighted by a Gaussian centered on each
- * player's ADP. No roster-need modeling on purpose: real ADP already encodes
- * positional timing (K/DST have late ADP, so their weight near early picks is
- * ~0), which keeps simulated opponent drafts plausible without extra logic.
+ * player's ADP. When `opts.roster` + `opts.settings` are supplied, the ADP
+ * weight is also scaled by that opponent's positional need (see
+ * positionNeedMultipliers and the NOTE above). Called without opts it behaves
+ * exactly as the original ADP-only sampler.
  */
-export function sampleOpponentPick(pool, pickNumber) {
+export function sampleOpponentPick(pool, pickNumber, { roster = null, settings = null } = {}) {
+  const needMult =
+    roster && settings ? positionNeedMultipliers(roster, settings) : null;
+
   const weights = pool.map(p => {
     const sd = Math.max(p.adpStdDev, 0.5);
     const z = (pickNumber - p.adp) / sd;
-    return Math.exp(-0.5 * z * z);
+    const adpWeight = Math.exp(-0.5 * z * z);
+    return needMult ? adpWeight * (needMult[p.position] ?? 1) : adpWeight;
   });
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   if (!(totalWeight > 0)) {
@@ -57,14 +116,24 @@ export function sampleOpponentPick(pool, pickNumber) {
  *
  * @param {object} [opts.trace]  optional array; if given, each pick is pushed
  *                               as { pick, team, mine, playerId, name, position }
+ * @param {Map<number, object[]>} [opts.opponentRosters]  slot -> players that
+ *   opponent has ALREADY drafted before currentPick. Seeds each opponent's
+ *   roster so their need multiplier reflects the real board, not just the
+ *   handful of picks they make inside this rollout. Copied, not mutated.
  */
 function runOneSimulation({
   candidate, availablePlayers, myRoster, currentPick, horizonPicks,
-  settings, replacementPoints, myDraftSlot, trace,
+  settings, replacementPoints, myDraftSlot, trace, opponentRosters,
 }) {
   let pool = availablePlayers.filter(p => p.id !== candidate.id);
   const simRoster = [...myRoster, candidate];
   const endPick = currentPick + horizonPicks;
+
+  // Per-opponent running roster, seeded from picks already made this draft.
+  const oppRosters = new Map();
+  if (opponentRosters) {
+    for (const [slot, players] of opponentRosters) oppRosters.set(slot, [...players]);
+  }
 
   if (trace) {
     trace.push({ pick: currentPick, team: myDraftSlot, mine: true, playerId: candidate.id, name: candidate.name, position: candidate.position });
@@ -86,8 +155,10 @@ function runOneSimulation({
         if (trace) trace.push({ pick, team, mine: true, playerId: choice.id, name: choice.name, position: choice.position });
       }
     } else {
-      const picked = sampleOpponentPick(pool, pick);
+      const roster = oppRosters.get(team) || [];
+      const picked = sampleOpponentPick(pool, pick, { roster, settings });
       pool = pool.filter(p => p.id !== picked.id);
+      oppRosters.set(team, [...roster, picked]);
       if (trace) trace.push({ pick, team, mine: false, playerId: picked.id, name: picked.name, position: picked.position });
     }
   }
@@ -105,12 +176,15 @@ function runOneSimulation({
  * @param {number}   params.currentPick       overall pick number I'm on the clock for
  * @param {number}   params.myDraftSlot       my 1-indexed snake slot
  * @param {object}   params.settings          league settings
+ * @param {Map<number, object[]>} [params.opponentRosters]  slot -> players each
+ *   opponent has already drafted; threaded into every rollout so opponents draft
+ *   roster-need-aware from the real board state, not from scratch.
  * @param {boolean}  [params.traceFirst]      capture a full pick log for candidate[0]'s first sim
  */
 export function simulateCandidates({
   candidates, availablePlayers, myRoster, currentPick, myDraftSlot, settings,
   numSimulations = DEFAULT_NUM_SIMULATIONS, horizonPicks = DEFAULT_HORIZON_PICKS,
-  traceFirst = false,
+  opponentRosters = null, traceFirst = false,
 }) {
   const { replacementPoints } = computeVOR(availablePlayers, settings);
   let sampleTrace = null;
@@ -121,7 +195,7 @@ export function simulateCandidates({
       const trace = traceFirst && ci === 0 && i === 0 ? [] : undefined;
       values.push(runOneSimulation({
         candidate, availablePlayers, myRoster, currentPick, horizonPicks,
-        settings, replacementPoints, myDraftSlot, trace,
+        settings, replacementPoints, myDraftSlot, trace, opponentRosters,
       }));
       if (trace) sampleTrace = trace;
     }

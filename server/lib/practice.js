@@ -4,7 +4,11 @@
 // batch of opponents between the user's turns resolves in milliseconds.
 //
 // The opponent model is shared with Layer 5: sampleOpponentPick lives in
-// montecarlo.js and is reused here as-is (ADP-weighted, no roster-need logic).
+// montecarlo.js and is reused here. As of HANDOFF (Roster-Aware Opponent
+// Modeling) it is ADP-weighted AND roster-need-aware — we track each opponent's
+// running roster through the batch and pass it in, so an opponent that already
+// has its RB slots full doesn't keep taking RBs while ignoring an empty TE.
+// See the NOTE in montecarlo.js and ALGORITHM-EDITS.md.
 
 import { teamOnClock } from "./draftMath.js";
 import { sampleOpponentPick } from "./montecarlo.js";
@@ -34,14 +38,26 @@ export function autoDraftUntilMyTurn(draftState, allPlayers) {
   const draftedIds = new Set(draftState.picks.map(p => p.playerId));
   let pool = allPlayers.filter(p => !draftedIds.has(p.id));
 
+  // Each team's roster so far, so opponent sampling can see positional need.
+  const playerById = new Map(allPlayers.map(p => [p.id, p]));
+  const rostersByTeam = new Map();
+  for (const pk of draftState.picks) {
+    const player = playerById.get(pk.playerId);
+    if (!player) continue;
+    if (!rostersByTeam.has(pk.byTeam)) rostersByTeam.set(pk.byTeam, []);
+    rostersByTeam.get(pk.byTeam).push(player);
+  }
+
   const autoPicks = [];
   while (draftState.picks.length < cap && pool.length > 0) {
     const pickNumber = draftState.picks.length + 1;
     const byTeam = teamOnClock(pickNumber, settings.teams);
     if (byTeam === myDraftSlot) break;
 
-    const picked = sampleOpponentPick(pool, pickNumber);
+    const roster = rostersByTeam.get(byTeam) || [];
+    const picked = sampleOpponentPick(pool, pickNumber, { roster, settings });
     pool = pool.filter(p => p.id !== picked.id);
+    rostersByTeam.set(byTeam, [...roster, picked]);
 
     const pick = { pickNumber, playerId: picked.id, byTeam };
     draftState.picks.push(pick);
