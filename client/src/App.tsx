@@ -23,14 +23,14 @@ export default function App() {
       setDraftState(d);
       setError(null);
     } catch (e) {
-      setError("Can't reach the draft helper server. Is it running on port 3001?");
+      setError("Can't reach the draft helper server.");
     }
   }, []);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("http://localhost:3001/api/players");
+        const res = await fetch("/api/players");
         const data = await res.json();
         setAllPlayers(data.players);
       } catch {

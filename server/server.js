@@ -4,6 +4,8 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
+const IS_VERCEL = !!process.env.VERCEL;
+
 import { DEFAULT_SETTINGS } from "./lib/leagueSettings.js";
 import { getRecommendations, computeVOR } from "./lib/valuation.js";
 import { computeLineupValue } from "./lib/lineup.js";
@@ -32,6 +34,8 @@ function freshDraftState() {
 }
 
 function loadDraftState() {
+  // On Vercel the filesystem is read-only; use fresh in-memory state.
+  if (IS_VERCEL) return freshDraftState();
   if (existsSync(DRAFT_STATE_PATH)) {
     const loaded = JSON.parse(readFileSync(DRAFT_STATE_PATH, "utf-8"));
     // Back-compat: state files written before Practice Mode have no `mode`.
@@ -44,6 +48,8 @@ function loadDraftState() {
 let draftState = loadDraftState();
 
 function saveDraftState() {
+  // On Vercel, state is in-memory only — skip the disk write.
+  if (IS_VERCEL) return;
   writeFileSync(DRAFT_STATE_PATH, JSON.stringify(draftState, null, 2));
 }
 
@@ -237,13 +243,19 @@ app.post("/api/simulate", (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
-const server = app.listen(PORT, () => console.log(`Draft helper server running on http://localhost:${PORT}`));
-server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
-    console.error(`\nPort ${PORT} is already in use — likely an orphaned server from ` +
-      `a previous session still serving stale data. Run: pkill -f "node server.js"\n`);
-    process.exit(1);
-  }
-  throw err;
-});
+// Export the app for Vercel (api/index.js imports it).
+// When run directly (local dev), also start the HTTP server.
+export { app };
+
+if (!IS_VERCEL) {
+  const PORT = process.env.PORT || 3001;
+  const server = app.listen(PORT, () => console.log(`Draft helper server running on http://localhost:${PORT}`));
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(`\nPort ${PORT} is already in use — likely an orphaned server from ` +
+        `a previous session still serving stale data. Run: pkill -f "node server.js"\n`);
+      process.exit(1);
+    }
+    throw err;
+  });
+}

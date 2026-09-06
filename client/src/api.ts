@@ -1,6 +1,8 @@
 import type { DraftPick, DraftState, PickResponse, RecommendationsResponse, SimulationResponse } from "./types";
 
-const BASE = "http://localhost:3001";
+// Empty BASE so all requests are relative to the current origin.
+// In local dev, Vite proxies /api/* to the Express server on :3001.
+const BASE = "";
 
 async function req<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
