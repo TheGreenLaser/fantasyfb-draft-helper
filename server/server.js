@@ -1,10 +1,13 @@
 import express from "express";
 import cors from "cors";
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { writeFileSync, existsSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
+import { createRequire } from "module";
 import { dirname, join } from "path";
 
 const IS_VERCEL = !!process.env.VERCEL;
+const __filename = fileURLToPath(import.meta.url);
+const _require = createRequire(import.meta.url);
 
 import { DEFAULT_SETTINGS } from "./lib/leagueSettings.js";
 import { getRecommendations, computeVOR } from "./lib/valuation.js";
@@ -18,11 +21,11 @@ import {
 } from "./lib/montecarlo.js";
 import { autoDraftUntilMyTurn, undoPracticePick } from "./lib/practice.js";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const PROJECTIONS_PATH = join(__dirname, "data", "projections.json");
+const __dirname = dirname(__filename);
 const DRAFT_STATE_PATH = join(__dirname, "data", "draft-state.json");
 
-const { players: allPlayers } = JSON.parse(readFileSync(PROJECTIONS_PATH, "utf-8"));
+// Use createRequire so Vercel's bundler statically traces and bundles the JSON.
+const { players: allPlayers } = _require("./data/projections.json");
 
 function freshDraftState() {
   return {
