@@ -46,6 +46,8 @@ export interface RecommendationsResponse {
   picksUntilMyTurn: number;
   onTheClockSlot: number;
   myDraftSlot: number;
+  /** Full draft state from the same snapshot — render header/feed/roster from this. */
+  draftState: DraftState;
 }
 
 /** One candidate's Monte Carlo outcome distribution (Layer 5). */

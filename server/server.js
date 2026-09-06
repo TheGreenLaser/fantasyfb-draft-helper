@@ -118,6 +118,19 @@ app.post("/api/draft-state/my-slot", (req, res) => {
 // opponent up to the user's next turn; those picks come back as `autoPicks`.
 app.post("/api/draft-state/pick", (req, res) => {
   const { playerId, byTeam } = req.body;
+
+  // Guard against a stale client re-drafting someone. If the board the user
+  // clicked from was behind the real draft state (an out-of-order refresh),
+  // the player table can still show an already-drafted player as available;
+  // silently pushing that pick corrupts the draft (duplicate players, inflated
+  // pick numbers, header/feed desync). Reject it instead.
+  if (!allPlayers.some(p => p.id === playerId)) {
+    return res.status(400).json({ error: `Unknown playerId ${playerId}.` });
+  }
+  if (draftState.picks.some(p => p.playerId === playerId)) {
+    return res.status(409).json({ error: "That player is already drafted.", draftState });
+  }
+
   const pickNumber = draftState.picks.length + 1;
   draftState.picks.push({ pickNumber, playerId, byTeam: byTeam ?? teamOnClock(pickNumber, draftState.settings.teams) });
 
@@ -195,6 +208,11 @@ app.get("/api/recommendations", (req, res) => {
     picksUntilMyTurn: nextPickNumber - currentPick,
     onTheClockSlot: teamOnClock(currentPick, draftState.settings.teams),
     myDraftSlot: draftState.myDraftSlot,
+    // The full draft state from the SAME snapshot as everything above, so the
+    // client can render the header, feed and roster from one atomic response
+    // instead of a second /api/draft-state request that a pick could land in
+    // front of (which desynced the header/feed/roster from each other).
+    draftState,
   });
 });
 

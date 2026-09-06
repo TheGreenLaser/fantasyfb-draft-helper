@@ -16,20 +16,20 @@ export default function App() {
   const [draftState, setDraftState] = useState<DraftState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Drafting several players in quick succession kicks off overlapping
-  // refresh() calls whose responses can resolve out of order. Without this
-  // guard a slow earlier response lands last and overwrites newer state, so
-  // the board jumps backwards (e.g. pick 1 → 2 → 5 → 4). Only let the most
-  // recent request write state.
+  // One request, one snapshot. The recommendations response carries the full
+  // draftState from the same server snapshot, so the header, feed and roster
+  // can't desync from each other. The seq guard drops a slow earlier refresh
+  // whose response lands after a newer one (rapid drafting), which otherwise
+  // makes the board jump backwards (e.g. pick 1 → 2 → 5 → 4).
   const refreshSeq = useRef(0);
 
   const refresh = useCallback(async () => {
     const seq = ++refreshSeq.current;
     try {
-      const [r, d] = await Promise.all([api.getRecommendations(), api.getDraftState()]);
+      const r = await api.getRecommendations();
       if (seq !== refreshSeq.current) return; // a newer refresh already won
       setRec(r);
-      setDraftState(d);
+      setDraftState(r.draftState);
       setError(null);
     } catch (e) {
       if (seq !== refreshSeq.current) return;
@@ -51,7 +51,13 @@ export default function App() {
   }, [refresh]);
 
   const handleDraft = async (playerId: number) => {
-    await api.pickPlayer(playerId);
+    // A 409 here means the board was behind the real draft and this player is
+    // already gone. Swallow it and refresh so the board resnaps to the truth.
+    try {
+      await api.pickPlayer(playerId);
+    } catch {
+      /* fall through to refresh */
+    }
     await refresh();
   };
 
