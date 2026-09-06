@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
 import type { DraftState, Player, RecommendationsResponse } from "./types";
 import { Header } from "./components/Header";
@@ -16,13 +16,23 @@ export default function App() {
   const [draftState, setDraftState] = useState<DraftState | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Drafting several players in quick succession kicks off overlapping
+  // refresh() calls whose responses can resolve out of order. Without this
+  // guard a slow earlier response lands last and overwrites newer state, so
+  // the board jumps backwards (e.g. pick 1 → 2 → 5 → 4). Only let the most
+  // recent request write state.
+  const refreshSeq = useRef(0);
+
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeq.current;
     try {
       const [r, d] = await Promise.all([api.getRecommendations(), api.getDraftState()]);
+      if (seq !== refreshSeq.current) return; // a newer refresh already won
       setRec(r);
       setDraftState(d);
       setError(null);
     } catch (e) {
+      if (seq !== refreshSeq.current) return;
       setError("Can't reach the draft helper server.");
     }
   }, []);
@@ -42,12 +52,12 @@ export default function App() {
 
   const handleDraft = async (playerId: number) => {
     await api.pickPlayer(playerId);
-    refresh();
+    await refresh();
   };
 
   const handleUndo = async () => {
     await api.undo();
-    refresh();
+    await refresh();
   };
 
   const handleReset = async () => {
